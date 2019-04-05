@@ -21,6 +21,7 @@ def cog_translate(
     src_path,
     dst_path,
     dst_kwargs,
+    vrt_params=None,
     indexes=None,
     nodata=None,
     add_mask=None,
@@ -41,6 +42,9 @@ def cog_translate(
         Will be opened in "w" mode.
     dst_kwargs: dict
         output dataset creation options.
+    vrt_params: dict,
+        Parameters passed to WarpVRTReaderBase.
+        These allow overiding crs, transform, width, and height
     indexes : tuple, int, optional
         Raster band indexes to copy.
     nodata, int, optional
@@ -83,7 +87,9 @@ def cog_translate(
                     min(int(dst_kwargs["blockxsize"]), int(dst_kwargs["blockysize"])),
                 )
 
-            vrt_params = dict(add_alpha=True)
+            if vrt_params is None:
+                vrt_params = dict()
+            vrt_params["add_alpha"] = True
 
             if nodata is not None:
                 vrt_params.update(
