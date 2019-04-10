@@ -251,48 +251,46 @@ def cog_validate(src_path):
                             )
                         )
 
-            block_offset = int(src.get_tag_item("BLOCK_OFFSET_0_0", "TIFF", bidx=1))
+            block_offset = src.get_tag_item("BLOCK_OFFSET_0_0", "TIFF", bidx=1)
             if not block_offset:
                 errors.append("Missing BLOCK_OFFSET_0_0")
+            else:
+                data_offset = int(block_offset) if block_offset else None
+                data_offsets = [data_offset]
+                details["data_offsets"] = {}
+                details["data_offsets"]["main"] = data_offset
 
-            data_offset = int(block_offset) if block_offset else None
-            data_offsets = [data_offset]
-            details["data_offsets"] = {}
-            details["data_offsets"]["main"] = data_offset
+                for ix, dec in enumerate(overviews):
+                    data_offset = src.get_tag_item("BLOCK_OFFSET_0_0", "TIFF", bidx=1, ovr=ix)
+                    data_offsets.append(int(data_offset) if data_offset else None)
+                    details["data_offsets"]["overview_{}".format(ix)] = data_offset
 
-            for ix, dec in enumerate(overviews):
-                data_offset = int(
-                    src.get_tag_item("BLOCK_OFFSET_0_0", "TIFF", bidx=1, ovr=ix)
-                )
-                data_offsets.append(data_offset)
-                details["data_offsets"]["overview_{}".format(ix)] = data_offset
+                if data_offsets[-1] < ifd_offsets[-1]:
+                    if len(overviews) > 0:
+                        errors.append(
+                            "The offset of the first block of the smallest overview "
+                            "should be after its IFD"
+                        )
+                    else:
+                        errors.append(
+                            "The offset of the first block of the image should "
+                            "be after its IFD"
+                        )
 
-            if data_offsets[-1] < ifd_offsets[-1]:
-                if len(overviews) > 0:
+                for i in range(len(data_offsets) - 2, 0, -1):
+                    if data_offsets[i] < data_offsets[i + 1]:
+                        errors.append(
+                            "The offset of the first block of overview of index {} should "
+                            "be after the one of the overview of index {}".format(i - 1, i)
+                        )
+
+                if len(data_offsets) >= 2 and data_offsets[0] < data_offsets[1]:
                     errors.append(
-                        "The offset of the first block of the smallest overview "
-                        "should be after its IFD"
+                        "The offset of the first block of the main resolution image "
+                        "should be after the one of the overview of index {}".format(
+                            len(overviews) - 1
+                        )
                     )
-                else:
-                    errors.append(
-                        "The offset of the first block of the image should "
-                        "be after its IFD"
-                    )
-
-            for i in range(len(data_offsets) - 2, 0, -1):
-                if data_offsets[i] < data_offsets[i + 1]:
-                    errors.append(
-                        "The offset of the first block of overview of index {} should "
-                        "be after the one of the overview of index {}".format(i - 1, i)
-                    )
-
-            if len(data_offsets) >= 2 and data_offsets[0] < data_offsets[1]:
-                errors.append(
-                    "The offset of the first block of the main resolution image "
-                    "should be after the one of the overview of index {}".format(
-                        len(overviews) - 1
-                    )
-                )
 
         for ix, dec in enumerate(overviews):
             with rasterio.open(src_path, OVERVIEW_LEVEL=ix) as ovr_dst:
